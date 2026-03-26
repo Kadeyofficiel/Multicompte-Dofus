@@ -1,0 +1,4 @@
+C:\Users\bakht\Desktop\Multi\bin\Verify\MultiCompte.deps.json
+C:\Users\bakht\Desktop\Multi\bin\Verify\MultiCompte.runtimeconfig.json
+C:\Users\bakht\Desktop\Multi\bin\Verify\MultiCompte.dll
+C:\Users\bakht\Desktop\Multi\bin\Verify\MultiCompte.pdb

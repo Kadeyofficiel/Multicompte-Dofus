@@ -1,0 +1,220 @@
+using System;
+using System.Diagnostics;
+using System.Drawing;
+using System.Windows.Forms;
+
+namespace MultiCompte
+{
+    internal class DofusClient
+    {
+        public Process Process  { get; }
+        public int     Pid      => Process.Id;
+        public bool    Embedded { get; private set; }
+        private IntPtr _hostedHwnd = IntPtr.Zero;
+        private Rectangle _viewport = Rectangle.Empty;
+        private double _sourceAspect = 16.0 / 9.0;
+
+        public Panel Panel { get; }
+
+        private string _pseudo = "Connexion...";
+        public  string  Pseudo  => _pseudo;
+        public  void    SetPseudo(string v) { _pseudo = v; }
+
+        public DofusClient(Process process)
+        {
+            Process = process;
+            Panel   = new Panel
+            {
+                BackColor = Color.Black,
+                Margin    = Padding.Empty,
+                Padding   = Padding.Empty,
+                Dock      = DockStyle.Fill
+            };
+            Panel.SizeChanged += (_, __) => ForceResize();
+        }
+
+        public void Embed()
+        {
+            try
+            {
+                IntPtr hwnd = RefreshHwnd();
+                if (hwnd == IntPtr.Zero) return;
+                if (NativeMethods.GetClientRect(hwnd, out NativeMethods.RECT src) && src.Width > 0 && src.Height > 0)
+                    _sourceAspect = (double)src.Width / src.Height;
+                NativeMethods.StripAllBorders(hwnd);
+                NativeMethods.SetParent(hwnd, Panel.Handle);
+                Embedded = true;
+                ForceResize();
+            }
+            catch { }
+        }
+
+        public void ForceResize()
+        {
+            if (!Embedded) return;
+            try
+            {
+                IntPtr hwnd = RefreshHwnd();
+                if (hwnd == IntPtr.Zero) return;
+
+                NativeMethods.GetClientRect(Panel.Handle, out NativeMethods.RECT pr);
+                int panelW = pr.Width;
+                int panelH = pr.Height;
+                if (panelW <= 0 || panelH <= 0) return;
+
+                // Fit sans crop : on garde le ratio natif du client Dofus.
+                double aspect = _sourceAspect > 0.1 ? _sourceAspect : (16.0 / 9.0);
+                int x, y, w, h;
+                double panelAspect = (double)panelW / panelH;
+                if (panelAspect > aspect)
+                {
+                    h = panelH;
+                    w = Math.Max(1, (int)Math.Round(h * aspect));
+                    x = (panelW - w) / 2;
+                    y = 0;
+                }
+                else
+                {
+                    w = panelW;
+                    h = Math.Max(1, (int)Math.Round(w / aspect));
+                    x = 0;
+                    y = (panelH - h) / 2;
+                }
+
+                int targetClientW = w;
+                int targetClientH = h;
+                NativeMethods.SetWindowPos(hwnd, IntPtr.Zero, x, y, w, h,
+                    NativeMethods.SWP_NOZORD | NativeMethods.SWP_NOACT | NativeMethods.SWP_SHOWWINDOW);
+
+                for (int i = 0; i < 4; i++)
+                {
+                    if (!NativeMethods.GetClientRect(hwnd, out NativeMethods.RECT cr))
+                        break;
+
+                    int dw = targetClientW - cr.Width;
+                    int dh = targetClientH - cr.Height;
+                    if (Math.Abs(dw) <= 1 && Math.Abs(dh) <= 1)
+                        break;
+
+                    w = Math.Max(1, w + dw);
+                    h = Math.Max(1, h + dh);
+                    NativeMethods.SetWindowPos(hwnd, IntPtr.Zero, x, y, w, h,
+                        NativeMethods.SWP_NOZORD | NativeMethods.SWP_NOACT | NativeMethods.SWP_SHOWWINDOW);
+                }
+
+                _viewport = new Rectangle(x, y, w, h);
+
+                // Force aussi la surface de rendu interne (AIR/child window).
+                NativeMethods.EnumChildWindows(hwnd, (child, _) =>
+                {
+                    NativeMethods.SetWindowPos(child, IntPtr.Zero, 0, 0, w, h,
+                        NativeMethods.SWP_NOZORD | NativeMethods.SWP_NOACT | NativeMethods.SWP_SHOWWINDOW);
+                    return true;
+                }, IntPtr.Zero);
+            }
+            catch { }
+        }
+
+        public void Detach()
+        {
+            try
+            {
+                IntPtr hwnd = RefreshHwnd();
+                if (hwnd == IntPtr.Zero) return;
+                NativeMethods.RestoreBorders(hwnd);
+                NativeMethods.SetParent(hwnd, NativeMethods.GetDesktopWindow());
+                NativeMethods.SetWindowPos(hwnd, IntPtr.Zero, 120, 80, 1280, 800,
+                    NativeMethods.SWP_NOZORD | NativeMethods.SWP_NOACT | NativeMethods.SWP_SHOWWINDOW | NativeMethods.SWP_FRAMECHANGED);
+                NativeMethods.ShowWindow(hwnd, NativeMethods.SW_RESTORE);
+                Embedded = false;
+                _viewport = Rectangle.Empty;
+            }
+            catch { }
+        }
+
+        public void Kill()
+        {
+            try
+            {
+                if (!Process.HasExited)
+                {
+                    Process.Kill(true);
+                    Process.WaitForExit(1500);
+                }
+            }
+            catch { }
+            try
+            {
+                using var tk = Process.Start(new ProcessStartInfo
+                {
+                    FileName = "taskkill",
+                    Arguments = $"/T /F /PID {Pid}",
+                    UseShellExecute = false,
+                    CreateNoWindow = true,
+                    WindowStyle = ProcessWindowStyle.Hidden
+                });
+                tk?.WaitForExit(1500);
+            }
+            catch { }
+            try
+            {
+                var p = Process.GetProcessById(Pid);
+                if (!p.HasExited)
+                {
+                    p.Kill(true);
+                    p.WaitForExit(1500);
+                }
+            }
+            catch { }
+            Embedded = false;
+            _viewport = Rectangle.Empty;
+        }
+
+        public void BroadcastLeftClick(int localX, int localY)
+        {
+            try
+            {
+                IntPtr hwnd = RefreshHwnd();
+                if (hwnd == IntPtr.Zero) return;
+                Rectangle vp = _viewport;
+                int x = Math.Max(0, localX - vp.X);
+                int y = Math.Max(0, localY - vp.Y);
+
+                IntPtr lp = (IntPtr)(((y & 0xFFFF) << 16) | (x & 0xFFFF));
+                NativeMethods.SendMessage(hwnd, NativeMethods.WM_LBUTTONDOWN, (IntPtr)0x0001, lp);
+                NativeMethods.SendMessage(hwnd, NativeMethods.WM_LBUTTONUP, IntPtr.Zero, lp);
+            }
+            catch { }
+        }
+
+        public void RefreshPseudo()
+        {
+            try
+            {
+                string title = NativeMethods.GetBestChildTitle(Panel.Handle, Pid);
+                if (string.IsNullOrWhiteSpace(title) || title == "Connexion...")
+                    title = NativeMethods.GetBestTitleForPid(Pid);
+                string ps = NativeMethods.ExtractPseudo(title);
+                if (ps != _pseudo) _pseudo = ps;
+            }
+            catch { }
+        }
+
+        public bool IsAlive()
+        { try { return !Process.HasExited; } catch { return false; } }
+
+        private IntPtr RefreshHwnd()
+        {
+            if (_hostedHwnd != IntPtr.Zero && NativeMethods.IsWindow(_hostedHwnd))
+                return _hostedHwnd;
+            try
+            {
+                var p = Process.GetProcessById(Pid);
+                p.Refresh();
+                _hostedHwnd = p.MainWindowHandle;
+                return _hostedHwnd;
+            }
+            catch { return IntPtr.Zero; }
+        }
+    }
+}
