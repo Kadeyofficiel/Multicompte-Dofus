@@ -1,17 +1,17 @@
 {
   "format": 1,
   "restore": {
-    "C:\\Users\\bakht\\Desktop\\Multi\\MultiCompte.csproj": {}
+    "C:\\Users\\bakht\\Desktop\\Multicompte-Dofus\\MultiCompte.csproj": {}
   },
   "projects": {
-    "C:\\Users\\bakht\\Desktop\\Multi\\MultiCompte.csproj": {
+    "C:\\Users\\bakht\\Desktop\\Multicompte-Dofus\\MultiCompte.csproj": {
       "version": "1.0.0",
       "restore": {
-        "projectUniqueName": "C:\\Users\\bakht\\Desktop\\Multi\\MultiCompte.csproj",
+        "projectUniqueName": "C:\\Users\\bakht\\Desktop\\Multicompte-Dofus\\MultiCompte.csproj",
         "projectName": "MultiCompte",
-        "projectPath": "C:\\Users\\bakht\\Desktop\\Multi\\MultiCompte.csproj",
+        "projectPath": "C:\\Users\\bakht\\Desktop\\Multicompte-Dofus\\MultiCompte.csproj",
         "packagesPath": "C:\\Users\\bakht\\.nuget\\packages\\",
-        "outputPath": "C:\\Users\\bakht\\Desktop\\Multi\\obj\\",
+        "outputPath": "C:\\Users\\bakht\\Desktop\\Multicompte-Dofus\\obj\\",
         "projectStyle": "PackageReference",
         "configFilePaths": [
           "C:\\Users\\bakht\\AppData\\Roaming\\NuGet\\NuGet.Config",
