@@ -25,17 +25,22 @@ namespace MultiCompte
         private readonly CheckBox _chkCustAlt, _chkCustCtrl, _chkCustWin;
         private readonly ComboBox _cmbCustKey;
         private readonly TextBox  _txtCustAction;
+        private readonly ComboBox _cmbPreset;
+        private readonly Panel _pTopBarColor, _pPersoBarColor, _pAccentColor, _pTextColor;
+        private readonly CheckBox _chkStartMax;
+        private readonly NumericUpDown _numWinW, _numWinH;
 
         public OptionsForm()
         {
-            Text            = "Options — Raccourcis";
-            Size            = new Size(520, 370);
+            Text            = "Options — Raccourcis et apparence";
+            Size            = new Size(520, 560);
             StartPosition   = FormStartPosition.CenterParent;
             FormBorderStyle = FormBorderStyle.FixedDialog;
             MaximizeBox     = false; MinimizeBox = false;
             BackColor       = C_BG;
             ForeColor       = C_TEXT;
             Font            = new Font("Segoe UI", 9f);
+            try { Icon = Icon.ExtractAssociatedIcon(Application.ExecutablePath); } catch { }
 
             // ── Titre ──────────────────────────────────────────────────
             var lbl = new Label
@@ -81,9 +86,73 @@ namespace MultiCompte
                 PlaceholderText = "ex: F1, Escape, Tab..."
             };
 
+            var sec3 = MakeSection("Apparence et taille de fenêtre", 284);
+            var lblPreset = new Label { Text = "Preset", Left = 14, Top = 312, Width = 50, ForeColor = C_TEXT };
+            _cmbPreset = new ComboBox
+            {
+                Left = 66, Top = 308, Width = 140, DropDownStyle = ComboBoxStyle.DropDownList,
+                BackColor = C_CARD, ForeColor = C_TEXT
+            };
+            _cmbPreset.Items.AddRange(new object[] {
+                "Océan", "Sakura", "Émeraude", "Violet", "Noir pro",
+                "Naruto", "Dragon Ball", "Cyberpunk", "Lave", "Glacier", "Soleil", "Forêt"
+            });
+            _cmbPreset.SelectedIndex = 0;
+            var bPreset = new Button
+            {
+                Text = "Appliquer",
+                Left = 212, Top = 307, Width = 88, Height = 24,
+                BackColor = C_CARD, ForeColor = C_TEXT, FlatStyle = FlatStyle.Flat, Cursor = Cursors.Hand
+            };
+            bPreset.FlatAppearance.BorderSize = 1;
+            bPreset.FlatAppearance.BorderColor = C_MUTED;
+            bPreset.Click += (_, __) =>
+            {
+                ApplyPreset(_cmbPreset.SelectedItem?.ToString() ?? "Océan");
+                ApplyLivePreview();
+            };
+
+            var lblColors = new Label { Text = "Couleurs (appliquées en live)", Left = 14, Top = 334, Width = 220, ForeColor = C_TEXT };
+
+            var lblTop = new Label { Text = "Barre haut", Left = 14, Top = 342, Width = 70, ForeColor = C_TEXT };
+            _pTopBarColor = MakeColorPanel(88, 339);
+            _pTopBarColor.Click += (_, __) => PickColor(_pTopBarColor);
+
+            var lblPerso = new Label { Text = "Barre persos", Left = 150, Top = 342, Width = 78, ForeColor = C_TEXT };
+            _pPersoBarColor = MakeColorPanel(232, 339);
+            _pPersoBarColor.Click += (_, __) => PickColor(_pPersoBarColor);
+
+            var lblAccent = new Label { Text = "Accent", Left = 294, Top = 342, Width = 48, ForeColor = C_TEXT };
+            _pAccentColor = MakeColorPanel(346, 339);
+            _pAccentColor.Click += (_, __) => PickColor(_pAccentColor);
+
+            var lblText = new Label { Text = "Texte", Left = 408, Top = 342, Width = 40, ForeColor = C_TEXT };
+            _pTextColor = MakeColorPanel(450, 339);
+            _pTextColor.Click += (_, __) => PickColor(_pTextColor);
+
+            _chkStartMax = new CheckBox
+            {
+                Text = "Ouvrir en plein écran",
+                Left = 14,
+                Top = 374,
+                Width = 210,
+                ForeColor = C_TEXT,
+                BackColor = Color.Transparent
+            };
+
+            var lblSize = new Label { Text = "Taille fenêtre", Left = 14, Top = 406, Width = 80, ForeColor = C_TEXT };
+            _numWinW = MakeNum(90, 404, 800, 3840, 1366);
+            var lblX = new Label { Text = "x", Left = 174, Top = 408, Width = 14, ForeColor = C_MUTED };
+            _numWinH = MakeNum(190, 404, 500, 2160, 800);
+            var lblSizeInfo = new Label
+            {
+                Text = "Appliquée quand le mode plein écran est désactivé.",
+                Left = 260, Top = 406, Width = 220, Height = 16, ForeColor = C_MUTED
+            };
+
             var btnSave = new Button
             {
-                Text = "💾  Sauvegarder", Left = 322, Top = 300, Width = 160, Height = 30,
+                Text = "💾  Sauvegarder", Left = 322, Top = 476, Width = 160, Height = 30,
                 BackColor = C_ACC, ForeColor = Color.White, FlatStyle = FlatStyle.Flat,
                 Font = new Font("Segoe UI", 9f, FontStyle.Bold), Cursor = Cursors.Hand
             };
@@ -92,7 +161,7 @@ namespace MultiCompte
 
             var btnCancel = new Button
             {
-                Text = "Annuler", Left = 234, Top = 300, Width = 82, Height = 30,
+                Text = "Annuler", Left = 234, Top = 476, Width = 82, Height = 30,
                 BackColor = C_CARD, ForeColor = C_MUTED, FlatStyle = FlatStyle.Flat,
                 Cursor = Cursors.Hand
             };
@@ -104,9 +173,13 @@ namespace MultiCompte
                 sec1, _chkSwAlt, _chkSwCtrl, _chkSwWin, lblSwPlus, _cmbSwKey, lblSwInfo,
                 sec2, _chkCustAlt, _chkCustCtrl, _chkCustWin, lblCustPlus, _cmbCustKey,
                 lblCustAction, _txtCustAction,
+                sec3, lblPreset, _cmbPreset, bPreset,
+                lblColors, lblTop, _pTopBarColor, lblPerso, _pPersoBarColor, lblAccent, _pAccentColor, lblText, _pTextColor,
+                _chkStartMax, lblSize, _numWinW, lblX, _numWinH, lblSizeInfo,
                 btnSave, btnCancel
             });
 
+            UiScale.ApplyToForm(this);
             LoadSettings();
         }
 
@@ -150,6 +223,133 @@ namespace MultiCompte
             return cmb;
         }
 
+        private NumericUpDown MakeNum(int left, int top, int min, int max, int def)
+        {
+            return new NumericUpDown
+            {
+                Left = left,
+                Top = top,
+                Width = 78,
+                Height = 24,
+                Minimum = min,
+                Maximum = max,
+                Value = def,
+                BackColor = C_CARD,
+                ForeColor = C_TEXT,
+                BorderStyle = BorderStyle.FixedSingle
+            };
+        }
+
+        private Panel MakeColorPanel(int left, int top)
+        {
+            return new Panel
+            {
+                Left = left,
+                Top = top,
+                Width = 26,
+                Height = 20,
+                BorderStyle = BorderStyle.FixedSingle,
+                Cursor = Cursors.Hand
+            };
+        }
+
+        private void PickColor(Panel panel)
+        {
+            using var dlg = new ColorDialog { Color = panel.BackColor, FullOpen = true };
+            if (dlg.ShowDialog(this) != DialogResult.OK) return;
+            panel.BackColor = dlg.Color;
+            ApplyLivePreview();
+        }
+
+        private void ApplyLivePreview()
+        {
+            if (Owner is MainForm mf)
+                mf.ApplyPreviewPalette(
+                    _pTopBarColor.BackColor,
+                    _pPersoBarColor.BackColor,
+                    _pAccentColor.BackColor,
+                    _pTextColor.BackColor);
+        }
+
+        private void ApplyPreset(string preset)
+        {
+            switch (preset)
+            {
+                case "Naruto":
+                    _pTopBarColor.BackColor = Color.FromArgb(38, 22, 12);
+                    _pPersoBarColor.BackColor = Color.FromArgb(28, 16, 10);
+                    _pAccentColor.BackColor = Color.FromArgb(255, 132, 0);
+                    _pTextColor.BackColor = Color.FromArgb(247, 232, 208);
+                    break;
+                case "Dragon Ball":
+                    _pTopBarColor.BackColor = Color.FromArgb(8, 24, 62);
+                    _pPersoBarColor.BackColor = Color.FromArgb(6, 18, 46);
+                    _pAccentColor.BackColor = Color.FromArgb(255, 170, 0);
+                    _pTextColor.BackColor = Color.FromArgb(238, 236, 220);
+                    break;
+                case "Cyberpunk":
+                    _pTopBarColor.BackColor = Color.FromArgb(18, 8, 40);
+                    _pPersoBarColor.BackColor = Color.FromArgb(10, 6, 26);
+                    _pAccentColor.BackColor = Color.FromArgb(0, 236, 255);
+                    _pTextColor.BackColor = Color.FromArgb(241, 225, 255);
+                    break;
+                case "Lave":
+                    _pTopBarColor.BackColor = Color.FromArgb(36, 8, 8);
+                    _pPersoBarColor.BackColor = Color.FromArgb(24, 6, 6);
+                    _pAccentColor.BackColor = Color.FromArgb(255, 74, 38);
+                    _pTextColor.BackColor = Color.FromArgb(245, 220, 210);
+                    break;
+                case "Glacier":
+                    _pTopBarColor.BackColor = Color.FromArgb(14, 34, 56);
+                    _pPersoBarColor.BackColor = Color.FromArgb(10, 24, 40);
+                    _pAccentColor.BackColor = Color.FromArgb(109, 214, 255);
+                    _pTextColor.BackColor = Color.FromArgb(232, 246, 255);
+                    break;
+                case "Soleil":
+                    _pTopBarColor.BackColor = Color.FromArgb(52, 32, 8);
+                    _pPersoBarColor.BackColor = Color.FromArgb(42, 24, 6);
+                    _pAccentColor.BackColor = Color.FromArgb(255, 211, 79);
+                    _pTextColor.BackColor = Color.FromArgb(255, 244, 210);
+                    break;
+                case "Forêt":
+                    _pTopBarColor.BackColor = Color.FromArgb(18, 34, 18);
+                    _pPersoBarColor.BackColor = Color.FromArgb(12, 24, 12);
+                    _pAccentColor.BackColor = Color.FromArgb(106, 187, 62);
+                    _pTextColor.BackColor = Color.FromArgb(232, 247, 228);
+                    break;
+                case "Sakura":
+                    _pTopBarColor.BackColor = Color.FromArgb(42, 22, 40);
+                    _pPersoBarColor.BackColor = Color.FromArgb(34, 17, 32);
+                    _pAccentColor.BackColor = Color.FromArgb(255, 99, 146);
+                    _pTextColor.BackColor = Color.FromArgb(250, 225, 236);
+                    break;
+                case "Émeraude":
+                    _pTopBarColor.BackColor = Color.FromArgb(18, 40, 28);
+                    _pPersoBarColor.BackColor = Color.FromArgb(12, 30, 20);
+                    _pAccentColor.BackColor = Color.FromArgb(46, 204, 113);
+                    _pTextColor.BackColor = Color.FromArgb(216, 242, 228);
+                    break;
+                case "Violet":
+                    _pTopBarColor.BackColor = Color.FromArgb(30, 24, 52);
+                    _pPersoBarColor.BackColor = Color.FromArgb(22, 17, 40);
+                    _pAccentColor.BackColor = Color.FromArgb(178, 114, 255);
+                    _pTextColor.BackColor = Color.FromArgb(228, 220, 248);
+                    break;
+                case "Noir pro":
+                    _pTopBarColor.BackColor = Color.FromArgb(20, 20, 20);
+                    _pPersoBarColor.BackColor = Color.FromArgb(14, 14, 14);
+                    _pAccentColor.BackColor = Color.FromArgb(245, 110, 145);
+                    _pTextColor.BackColor = Color.FromArgb(235, 235, 235);
+                    break;
+                default: // Océan
+                    _pTopBarColor.BackColor = Color.FromArgb(18, 22, 40);
+                    _pPersoBarColor.BackColor = Color.FromArgb(13, 17, 32);
+                    _pAccentColor.BackColor = Color.FromArgb(72, 120, 230);
+                    _pTextColor.BackColor = Color.FromArgb(210, 220, 240);
+                    break;
+            }
+        }
+
         // ── Sauvegarde / Chargement ───────────────────────────────────
         private const string REG = @"HKEY_CURRENT_USER\MultiCompteV3\Hotkeys";
 
@@ -165,6 +365,15 @@ namespace MultiCompte
             Registry.SetValue(REG, "CustWin",    _chkCustWin.Checked  ? "1" : "0");
             Registry.SetValue(REG, "CustKey",    _cmbCustKey.SelectedItem?.ToString() ?? "(aucune)");
             Registry.SetValue(REG, "CustAction", _txtCustAction.Text.Trim());
+
+            Settings.TopBarColor = _pTopBarColor.BackColor;
+            Settings.PersoBarColor = _pPersoBarColor.BackColor;
+            Settings.AccentColor = _pAccentColor.BackColor;
+            Settings.TextColor = _pTextColor.BackColor;
+            Settings.Theme = _cmbPreset.SelectedItem?.ToString() ?? "Océan";
+            Settings.StartMaximized = _chkStartMax.Checked;
+            Settings.WindowWidth = (int)_numWinW.Value;
+            Settings.WindowHeight = (int)_numWinH.Value;
 
             MessageBox.Show("Options sauvegardées.",
                 "Options", MessageBoxButtons.OK, MessageBoxIcon.Information);
@@ -183,6 +392,17 @@ namespace MultiCompte
             _chkCustWin.Checked  = Registry.GetValue(REG, "CustWin",  "0")?.ToString() == "1";
             SetCombo(_cmbCustKey, Registry.GetValue(REG, "CustKey", "(aucune)")?.ToString());
             _txtCustAction.Text = Registry.GetValue(REG, "CustAction", "")?.ToString() ?? "";
+
+            _pTopBarColor.BackColor = Settings.TopBarColor;
+            _pPersoBarColor.BackColor = Settings.PersoBarColor;
+            _pAccentColor.BackColor = Settings.AccentColor;
+            _pTextColor.BackColor = Settings.TextColor;
+            SetCombo(_cmbPreset, Settings.Theme);
+            _chkStartMax.Checked = Settings.StartMaximized;
+            _numWinW.Value = Math.Clamp(Settings.WindowWidth, (int)_numWinW.Minimum, (int)_numWinW.Maximum);
+            _numWinH.Value = Math.Clamp(Settings.WindowHeight, (int)_numWinH.Minimum, (int)_numWinH.Maximum);
+
+            ApplyLivePreview();
         }
 
         private static void SetCombo(ComboBox c, string? val)

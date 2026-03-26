@@ -5,8 +5,9 @@
     <UseWindowsForms>true</UseWindowsForms>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
-    <AssemblyName>MultiCompte</AssemblyName>
+    <AssemblyName>abdefus</AssemblyName>
     <RootNamespace>MultiCompte</RootNamespace>
+    <ApplicationIcon>assets\abdefus.ico</ApplicationIcon>
     <ApplicationHighDpiMode>PerMonitorV2</ApplicationHighDpiMode>
     <ApplicationManifest>app.manifest</ApplicationManifest>
     <!-- On liste EXPLICITEMENT les fichiers pour éviter les doublons -->
@@ -17,11 +18,14 @@
     <Compile Include="Settings.cs" />
     <Compile Include="NativeMethods.cs" />
     <Compile Include="DofusClient.cs" />
+    <Compile Include="UiScale.cs" />
     <Compile Include="PickerForm.cs" />
     <Compile Include="MainForm.cs" />
     <Compile Include="OptionsForm.cs" />
   </ItemGroup>
   <ItemGroup>
     <None Include="app.manifest" />
+    <None Include="assets\abdefus.ico" />
+    <None Include="assets\abdefus_logo.png" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 </Project>

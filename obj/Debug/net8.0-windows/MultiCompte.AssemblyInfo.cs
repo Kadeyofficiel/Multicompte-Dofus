@@ -11,12 +11,12 @@
 using System;
 using System.Reflection;
 
-[assembly: System.Reflection.AssemblyCompanyAttribute("MultiCompte")]
+[assembly: System.Reflection.AssemblyCompanyAttribute("abdefus")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+7f2ab70e077c412f8197ea1d2c1f81045bc362d0")]
-[assembly: System.Reflection.AssemblyProductAttribute("MultiCompte")]
-[assembly: System.Reflection.AssemblyTitleAttribute("MultiCompte")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+4e876918df783665239ad38d82303a8f195e8bba")]
+[assembly: System.Reflection.AssemblyProductAttribute("abdefus")]
+[assembly: System.Reflection.AssemblyTitleAttribute("abdefus")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]
 [assembly: System.Runtime.Versioning.TargetPlatformAttribute("Windows7.0")]
 [assembly: System.Runtime.Versioning.SupportedOSPlatformAttribute("Windows7.0")]

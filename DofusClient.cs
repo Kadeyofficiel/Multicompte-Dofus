@@ -59,17 +59,16 @@ namespace MultiCompte
                 int panelH = pr.Height;
                 if (panelW <= 0 || panelH <= 0) return;
 
-                // Plein écran du container, identique sur toutes machines.
-                int x = 0, y = 0;
-                int w = panelW, h = panelH;
+                // Remplissage complet sans bordures.
+                int x = 0, y = 0, w = panelW, h = panelH;
                 NativeMethods.SetWindowPos(hwnd, IntPtr.Zero, x, y, w, h,
                     NativeMethods.SWP_NOZORD | NativeMethods.SWP_NOACT | NativeMethods.SWP_SHOWWINDOW);
 
                 // Une seule compensation contrôlée si la zone cliente diffère.
                 if (NativeMethods.GetClientRect(hwnd, out NativeMethods.RECT cr))
                 {
-                    int dw = panelW - cr.Width;
-                    int dh = panelH - cr.Height;
+                    int dw = w - cr.Width;
+                    int dh = h - cr.Height;
                     // Garde-fou: évite les dérives DPI aberrantes.
                     if (Math.Abs(dw) <= 64 && Math.Abs(dh) <= 64)
                     {

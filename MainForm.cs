@@ -15,18 +15,29 @@ namespace MultiCompte
         private const int WM_HOTKEY   = 0x0312;
         private const int ID_SWITCH   = 1;
         private const int ID_CUSTOM   = 2;
-        private const int TOP_H       = 30;
+        private const int TOP_H       = 34;
         private const int PERSO_H     = 34;
+        private const int WM_NCHITTEST = 0x84;
+        private const int HTCLIENT = 1;
+        private const int HTLEFT = 10;
+        private const int HTRIGHT = 11;
+        private const int HTTOP = 12;
+        private const int HTTOPLEFT = 13;
+        private const int HTTOPRIGHT = 14;
+        private const int HTBOTTOM = 15;
+        private const int HTBOTTOMLEFT = 16;
+        private const int HTBOTTOMRIGHT = 17;
+        private const int RESIZE_BORDER = 8;
 
-        private static readonly Color C_TOP   = Color.FromArgb(18, 22, 40);
-        private static readonly Color C_PERSO = Color.FromArgb(13, 17, 32);
-        private static readonly Color C_ACC   = Color.FromArgb(233, 69, 96);
-        private static readonly Color C_BLUE  = Color.FromArgb(72, 120, 230);
-        private static readonly Color C_GREEN = Color.FromArgb(46, 204, 113);
-        private static readonly Color C_TEXT  = Color.FromArgb(210, 220, 240);
-        private static readonly Color C_MUTED = Color.FromArgb(90, 105, 140);
-        private static readonly Color C_HOVER = Color.FromArgb(30, 38, 62);
-        private static readonly Color C_ACT   = Color.FromArgb(28, 40, 68);
+        private Color C_TOP   = Color.FromArgb(18, 22, 40);
+        private Color C_PERSO = Color.FromArgb(13, 17, 32);
+        private Color C_ACC   = Color.FromArgb(233, 69, 96);
+        private Color C_BLUE  = Color.FromArgb(72, 120, 230);
+        private Color C_GREEN = Color.FromArgb(46, 204, 113);
+        private Color C_TEXT  = Color.FromArgb(210, 220, 240);
+        private Color C_MUTED = Color.FromArgb(90, 105, 140);
+        private Color C_HOVER = Color.FromArgb(30, 38, 62);
+        private Color C_ACT   = Color.FromArgb(28, 40, 68);
 
         private readonly List<DofusClient>          _clients = new();
         private HashSet<int>?                       _selectedPids;
@@ -47,6 +58,7 @@ namespace MultiCompte
         private readonly Panel  _persoBar;
         private readonly Panel  _gameArea;
         private readonly Button _btnMiddle;
+        private readonly Label  _titleLabel;
 
         private readonly ContextMenuStrip  _ctx;
         private DofusClient?               _ctxClient;
@@ -56,13 +68,16 @@ namespace MultiCompte
         public MainForm()
         {
             SuspendLayout();
-            Text = "MultiCompte"; Size = new Size(1366, 800); MinimumSize = new Size(800, 400);
+            Text = "abdefus";
+            Size = new Size(Settings.WindowWidth, Settings.WindowHeight);
+            MinimumSize = new Size(800, 500);
             StartPosition = FormStartPosition.CenterScreen;
             BackColor = Color.Black; ForeColor = C_TEXT;
             Font = new Font("Segoe UI", 8.5f); DoubleBuffered = true;
             FormBorderStyle = FormBorderStyle.None;
-            WindowState = FormWindowState.Maximized;
+            WindowState = Settings.StartMaximized ? FormWindowState.Maximized : FormWindowState.Normal;
             AutoScaleMode = AutoScaleMode.None;
+            try { Icon = Icon.ExtractAssociatedIcon(Application.ExecutablePath); } catch { }
 
             var miRen = new ToolStripMenuItem("✏  Renommer")                         { ForeColor = C_TEXT };
             var miRet = new ToolStripMenuItem("⬅  Retirer (garde Dofus ouvert)")     { ForeColor = C_BLUE };
@@ -75,34 +90,57 @@ namespace MultiCompte
 
             _topBar = new Panel { Dock = DockStyle.Top, Height = TOP_H, BackColor = C_TOP };
 
-            var lbl = new Label { Text = "🎮  MultiCompte", Font = new Font("Segoe UI", 9f, FontStyle.Bold), ForeColor = C_ACC, Left = 8, Top = 6, Width = 140, Height = 18, AutoSize = false };
+            var logo = new PictureBox
+            {
+                Left = 8,
+                Top = 5,
+                Width = 22,
+                Height = 22,
+                SizeMode = PictureBoxSizeMode.Zoom,
+                BackColor = Color.Transparent
+            };
+            try
+            {
+                using var appIcon = Icon.ExtractAssociatedIcon(Application.ExecutablePath);
+                if (appIcon != null) logo.Image = appIcon.ToBitmap();
+            }
+            catch { }
 
-            _btnMiddle = Btn("🖱 Molette : OFF", 150, 150, Color.White);
+            _titleLabel = new Label { Text = "abdefus", Font = new Font("Segoe UI", 9f, FontStyle.Bold), ForeColor = C_ACC, Left = 34, Top = 6, Height = 18, AutoSize = true, BackColor = Color.Transparent };
+
+            _btnMiddle = Btn("Molette : OFF", 150, 150, Color.White);
             _btnMiddle.Click += (_, __) => ToggleHook();
 
             var bGerer   = Btn("⚙ Gérer",   306, 72, Color.White);   bGerer.Click   += (_, __) => ShowPicker();
-            var bOptions = Btn("⚙ Options", 384, 84, Color.White);   bOptions.Click += (_, __) => { using var f = new OptionsForm(); f.ShowDialog(this); RegisterHotkeys(); if (_activeIdx >= 0 && _activeIdx < _clients.Count) _clients[_activeIdx].ForceResize(); };
+            var bOptions = Btn("⚙ Options", 384, 84, Color.White);   bOptions.Click += (_, __) =>
+            {
+                using var f = new OptionsForm();
+                f.ShowDialog(this);
+                RegisterHotkeys();
+                ApplyAppearanceFromSettings();
+                if (_activeIdx >= 0 && _activeIdx < _clients.Count) _clients[_activeIdx].ForceResize();
+            };
             var bAddPersos = Btn("+ Ajouter des persos", 474, 130, Color.White); bAddPersos.Click += (_, __) => ShowPicker();
 
-            var bMin   = Btn("—", 0, 28, Color.White);
-            var bMax   = Btn("⬜", 0, 28, Color.White);
-            var bClose = Btn("✕", 0, 28, C_ACC);
+            var bMin   = Btn("—", 0, 40, Color.White);
+            var bMax   = Btn("⬜", 0, 40, Color.White);
+            var bClose = Btn("✕", 0, 40, C_ACC);
             bMin.Anchor = bMax.Anchor = bClose.Anchor = AnchorStyles.Top | AnchorStyles.Right;
-            _topBar.Layout += (_, __) => { bClose.Left = _topBar.Width-30; bMax.Left = _topBar.Width-60; bMin.Left = _topBar.Width-90; };
+            _topBar.Layout += (_, __) => { bClose.Left = _topBar.Width-42; bMax.Left = _topBar.Width-84; bMin.Left = _topBar.Width-126; };
             bMin.Click   += (_, __) => WindowState = FormWindowState.Minimized;
             bMax.Click   += (_, __) => { WindowState = WindowState == FormWindowState.Maximized ? FormWindowState.Normal : FormWindowState.Maximized; };
             bClose.Click += (_, __) => Close();
             bClose.FlatAppearance.MouseOverBackColor = Color.FromArgb(192, 0, 0);
 
-            _topBar.Controls.AddRange(new Control[] { lbl, _btnMiddle, bGerer, bOptions, bAddPersos, bMin, bMax, bClose });
+            _topBar.Controls.AddRange(new Control[] { logo, _titleLabel, _btnMiddle, bGerer, bOptions, bAddPersos, bMin, bMax, bClose });
 
             bool drag = false; Point dragPt = Point.Empty;
             _topBar.MouseDown += (s, e) => { if (e.Button == MouseButtons.Left) { drag = true; dragPt = e.Location; } };
             _topBar.MouseMove += (s, e) => { if (drag) Location = new Point(Location.X+e.X-dragPt.X, Location.Y+e.Y-dragPt.Y); };
             _topBar.MouseUp   += (_, __) => drag = false;
-            lbl.MouseDown += (s, e) => { if (e.Button == MouseButtons.Left) { drag = true; dragPt = new Point(e.X+lbl.Left, e.Y); } };
-            lbl.MouseMove += (s, e) => { if (drag) Location = new Point(Location.X+e.X+lbl.Left-dragPt.X, Location.Y+e.Y-dragPt.Y); };
-            lbl.MouseUp   += (_, __) => drag = false;
+            _titleLabel.MouseDown += (s, e) => { if (e.Button == MouseButtons.Left) { drag = true; dragPt = new Point(e.X + _titleLabel.Left, e.Y); } };
+            _titleLabel.MouseMove += (s, e) => { if (drag) Location = new Point(Location.X + e.X + _titleLabel.Left - dragPt.X, Location.Y + e.Y - dragPt.Y); };
+            _titleLabel.MouseUp   += (_, __) => drag = false;
 
             _persoBar = new Panel { Dock = DockStyle.Top, Height = PERSO_H, BackColor = C_PERSO };
 
@@ -121,6 +159,8 @@ namespace MultiCompte
             Shown += MainForm_Shown;
             FormClosing += MainForm_FormClosing;
             _refreshTimer.Tick += RefreshTick;
+            ApplyAppearanceFromSettings();
+            UiScale.ApplyToForm(this);
             ResumeLayout(false);
         }
 
@@ -129,6 +169,127 @@ namespace MultiCompte
             var b = new Button { Text=t, Left=l, Top=1, Width=w, Height=TOP_H-2, FlatStyle=FlatStyle.Flat, BackColor=Color.Transparent, ForeColor=fg, Cursor=Cursors.Hand, Font=new Font("Segoe UI",8f), TextAlign=ContentAlignment.MiddleCenter };
             b.FlatAppearance.BorderSize=0; b.FlatAppearance.MouseOverBackColor=C_HOVER;
             return b;
+        }
+
+        private void ApplyAppearanceFromSettings()
+        {
+            ApplyCustomColorsFromSettings();
+            if (Settings.StartMaximized)
+            {
+                WindowState = FormWindowState.Maximized;
+            }
+            else
+            {
+                if (WindowState == FormWindowState.Maximized)
+                    WindowState = FormWindowState.Normal;
+                Size = new Size(
+                    Math.Max(MinimumSize.Width, Settings.WindowWidth),
+                    Math.Max(MinimumSize.Height, Settings.WindowHeight));
+            }
+            BuildPersoBar();
+            Invalidate(true);
+        }
+
+        private void ApplyCustomColorsFromSettings()
+        {
+            ApplyPreviewPalette(
+                Settings.TopBarColor,
+                Settings.PersoBarColor,
+                Settings.AccentColor,
+                Settings.TextColor);
+        }
+
+        public void ApplyPreviewPalette(Color top, Color perso, Color accent, Color text)
+        {
+            C_TOP = top;
+            C_PERSO = perso;
+            C_ACC = accent;
+            C_BLUE = accent;
+            C_GREEN = accent;
+            C_TEXT = text;
+            C_MUTED = Blend(text, top, 0.50f);
+            C_HOVER = Blend(top, Color.White, 0.12f);
+            C_ACT = Blend(perso, accent, 0.28f);
+
+            var topText = EnsureReadableText(C_TEXT, C_TOP);
+            var persoText = EnsureReadableText(C_TEXT, C_PERSO);
+
+            BackColor = Color.Black;
+            ForeColor = topText;
+            _topBar.BackColor = C_TOP;
+            _persoBar.BackColor = C_PERSO;
+            _ctx.BackColor = C_TOP;
+            _ctx.ForeColor = topText;
+
+            // Applique un style lisible aux éléments de la top bar.
+            foreach (Control ctl in _topBar.Controls)
+            {
+                if (ctl is Button b)
+                {
+                    if (b.Text == "✕")
+                    {
+                        b.ForeColor = Color.White;
+                        b.FlatAppearance.BorderSize = 0;
+                        b.FlatAppearance.MouseOverBackColor = Color.FromArgb(192, 0, 0);
+                    }
+                    else
+                    {
+                        b.ForeColor = topText;
+                        b.FlatAppearance.BorderSize = 0;
+                        b.FlatAppearance.MouseOverBackColor = Color.FromArgb(95, accent.R, accent.G, accent.B);
+                    }
+                }
+                else if (ctl is Label l)
+                {
+                    if (ReferenceEquals(l, _titleLabel))
+                        l.ForeColor = accent;
+                    else
+                        l.ForeColor = topText;
+                }
+            }
+
+            // Assure une bonne lisibilité de la barre des persos.
+            _persoBar.ForeColor = persoText;
+        }
+
+        private static Color Blend(Color a, Color b, float t)
+        {
+            t = Math.Clamp(t, 0f, 1f);
+            int r = (int)Math.Round(a.R + (b.R - a.R) * t);
+            int g = (int)Math.Round(a.G + (b.G - a.G) * t);
+            int bl = (int)Math.Round(a.B + (b.B - a.B) * t);
+            return Color.FromArgb(
+                Math.Clamp(r, 0, 255),
+                Math.Clamp(g, 0, 255),
+                Math.Clamp(bl, 0, 255));
+        }
+
+        private static Color EnsureReadableText(Color candidate, Color background)
+        {
+            double c = ContrastRatio(candidate, background);
+            if (c >= 3.2) return candidate;
+            var white = Color.White;
+            var black = Color.Black;
+            return ContrastRatio(white, background) >= ContrastRatio(black, background) ? white : black;
+        }
+
+        private static double ContrastRatio(Color a, Color b)
+        {
+            double l1 = RelativeLuminance(a);
+            double l2 = RelativeLuminance(b);
+            double hi = Math.Max(l1, l2);
+            double lo = Math.Min(l1, l2);
+            return (hi + 0.05) / (lo + 0.05);
+        }
+
+        private static double RelativeLuminance(Color c)
+        {
+            static double C(double v)
+            {
+                v /= 255.0;
+                return v <= 0.03928 ? v / 12.92 : Math.Pow((v + 0.055) / 1.055, 2.4);
+            }
+            return 0.2126 * C(c.R) + 0.7152 * C(c.G) + 0.0722 * C(c.B);
         }
 
         private void ToggleHook()
@@ -141,13 +302,13 @@ namespace MultiCompte
                 _hook = NativeMethods.SetWindowsHookEx(
                     NativeMethods.WH_MOUSE_LL, _hookProc,
                     NativeMethods.GetModuleHandle(mod.ModuleName), 0);
-                _btnMiddle.Text = "🖱 Molette : ON "; _btnMiddle.ForeColor = Color.White;
+                _btnMiddle.Text = "Molette : ON"; _btnMiddle.ForeColor = Color.White;
                 _btnMiddle.BackColor = Color.FromArgb(180, 120, 255, 170);
             }
             else
             {
                 if (_hook != IntPtr.Zero) { NativeMethods.UnhookWindowsHookEx(_hook); _hook = IntPtr.Zero; }
-                _btnMiddle.Text = "🖱 Molette : OFF"; _btnMiddle.ForeColor = Color.White; _btnMiddle.BackColor = Color.Transparent;
+                _btnMiddle.Text = "Molette : OFF"; _btnMiddle.ForeColor = Color.White; _btnMiddle.BackColor = Color.Transparent;
             }
             BuildPersoBar();
         }
@@ -228,6 +389,29 @@ namespace MultiCompte
 
         protected override void WndProc(ref Message m)
         {
+            if (m.Msg == WM_NCHITTEST && WindowState == FormWindowState.Normal)
+            {
+                base.WndProc(ref m);
+                if ((int)m.Result == HTCLIENT)
+                {
+                    Point p = PointToClient(Cursor.Position);
+                    bool left = p.X <= RESIZE_BORDER;
+                    bool right = p.X >= ClientSize.Width - RESIZE_BORDER;
+                    bool top = p.Y <= RESIZE_BORDER;
+                    bool bottom = p.Y >= ClientSize.Height - RESIZE_BORDER;
+
+                    if (left && top) m.Result = (IntPtr)HTTOPLEFT;
+                    else if (right && top) m.Result = (IntPtr)HTTOPRIGHT;
+                    else if (left && bottom) m.Result = (IntPtr)HTBOTTOMLEFT;
+                    else if (right && bottom) m.Result = (IntPtr)HTBOTTOMRIGHT;
+                    else if (left) m.Result = (IntPtr)HTLEFT;
+                    else if (right) m.Result = (IntPtr)HTRIGHT;
+                    else if (top) m.Result = (IntPtr)HTTOP;
+                    else if (bottom) m.Result = (IntPtr)HTBOTTOM;
+                }
+                return;
+            }
+
             if (m.Msg == WM_HOTKEY)
             {
                 int id = m.WParam.ToInt32();
@@ -363,7 +547,7 @@ namespace MultiCompte
 
                 var btn = new Button
                 {
-                    Tag = cl, Text = _middleActive && active ? $"  🖱 {cl.Pseudo}" : $"  {cl.Pseudo}", Left = x, Top = 3,
+                    Tag = cl, Text = _middleActive && active ? $"  ON  {cl.Pseudo}" : $"  {cl.Pseudo}", Left = x, Top = 3,
                     Height = PERSO_H-6, FlatStyle = FlatStyle.Flat,
                     BackColor = active ? C_ACT : Color.Transparent,
                     ForeColor = (_middleActive && active) ? Color.FromArgb(140, 255, 190) : (active ? C_TEXT : C_MUTED), Cursor = Cursors.Hand,

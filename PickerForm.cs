@@ -18,11 +18,12 @@ namespace MultiCompte
 
         public PickerForm()
         {
-            Text = "Gestion des pages — Clients Dofus";
+            Text = "abdefus — Gestion des pages";
             Size = new Size(500, 420); StartPosition = FormStartPosition.CenterScreen;
             FormBorderStyle = FormBorderStyle.FixedDialog; MaximizeBox = false; MinimizeBox = false;
             BackColor = Color.FromArgb(18, 22, 40); ForeColor = Color.FromArgb(210, 220, 240);
             Font = new Font("Segoe UI", 9.5f);
+            try { Icon = Icon.ExtractAssociatedIcon(Application.ExecutablePath); } catch { }
 
             Controls.Add(new Label { Text = "🎮  Clients Dofus détectés", Font = new Font("Segoe UI", 13f, FontStyle.Bold), ForeColor = Color.FromArgb(233, 69, 96), Left = 14, Top = 12, Width = 460, Height = 26, AutoSize = false });
             _lblInfo = new Label { Left = 14, Top = 42, Width = 460, Height = 18, ForeColor = Color.FromArgb(90, 105, 140), AutoSize = false };
@@ -44,6 +45,7 @@ namespace MultiCompte
             bRef.Click  += (_, __) => LoadList();
             bOk.Click   += Validate;
             Controls.AddRange(new Control[] { bAll, bNone, bRef, bOk });
+            UiScale.ApplyToForm(this);
             LoadList();
         }
 
