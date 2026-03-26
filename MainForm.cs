@@ -5,6 +5,7 @@ using System.Drawing;
 using System.IO;
 using System.Linq;
 using System.Runtime.InteropServices;
+using System.Threading.Tasks;
 using System.Windows.Forms;
 
 namespace MultiCompte
@@ -49,7 +50,8 @@ namespace MultiCompte
 
         private readonly ContextMenuStrip  _ctx;
         private DofusClient?               _ctxClient;
-        private bool _shutdownDone;
+        private bool _shutdownStarted;
+        private bool _allowClose;
 
         public MainForm()
         {
@@ -60,6 +62,7 @@ namespace MultiCompte
             Font = new Font("Segoe UI", 8.5f); DoubleBuffered = true;
             FormBorderStyle = FormBorderStyle.None;
             WindowState = FormWindowState.Maximized;
+            AutoScaleMode = AutoScaleMode.None;
 
             var miRen = new ToolStripMenuItem("✏  Renommer")                         { ForeColor = C_TEXT };
             var miRet = new ToolStripMenuItem("⬅  Retirer (garde Dofus ouvert)")     { ForeColor = C_BLUE };
@@ -117,7 +120,6 @@ namespace MultiCompte
 
             Shown += MainForm_Shown;
             FormClosing += MainForm_FormClosing;
-            FormClosed += MainForm_FormClosed;
             _refreshTimer.Tick += RefreshTick;
             ResumeLayout(false);
         }
@@ -431,30 +433,56 @@ namespace MultiCompte
             if (changed) { ShowActive(); BuildPersoBar(); }
         }
 
-        private void MainForm_FormClosing(object? sender, FormClosingEventArgs e)
-            => ShutdownNow();
-
-        private void MainForm_FormClosed(object? sender, FormClosedEventArgs e)
-            => ShutdownNow();
-
-        private void ShutdownNow()
+        private async void MainForm_FormClosing(object? sender, FormClosingEventArgs e)
         {
-            if (_shutdownDone) return;
-            _shutdownDone = true;
+            if (_allowClose) return;
+            e.Cancel = true;
+            await BeginShutdownAsync();
+        }
+
+        private async Task BeginShutdownAsync()
+        {
+            if (_shutdownStarted) return;
+            _shutdownStarted = true;
+
+            // Rend la fermeture visuellement fluide, puis termine en arrière-plan.
+            Enabled = false;
+            ShowInTaskbar = false;
+            Opacity = 0;
+
+            // Partie UI: toujours sur le thread UI (évite les exceptions inter-threads).
             _refreshTimer.Stop();
-            if (_hook != IntPtr.Zero) NativeMethods.UnhookWindowsHookEx(_hook);
+            if (_hook != IntPtr.Zero)
+            {
+                NativeMethods.UnhookWindowsHookEx(_hook);
+                _hook = IntPtr.Zero;
+            }
             NativeMethods.UnregisterHotKey(Handle, ID_SWITCH);
             NativeMethods.UnregisterHotKey(Handle, ID_CUSTOM);
-            foreach (var c in _clients.ToList()) try { c.Kill(); } catch { }
+
+            var managedPids = _clients.Select(c => c.Pid).Distinct().ToList();
             _clients.Clear();
 
-            // Filet de sécurité: termine tout Dofus restant immédiatement.
-            foreach (var p in Process.GetProcessesByName("Dofus"))
+            // Partie process kill: en arrière-plan.
+            await Task.Run(() => KillManagedProcesses(managedPids));
+
+            _allowClose = true;
+            Close();
+        }
+
+        private static void KillManagedProcesses(IEnumerable<int> managedPids)
+        {
+            // Ultime sécurité ciblée: ne force QUE les PID gérés par MultiCompte.
+            foreach (int pid in managedPids)
             {
                 try
                 {
-                    p.Kill(true);
-                    p.WaitForExit(1500);
+                    var p = Process.GetProcessById(pid);
+                    if (!p.HasExited)
+                    {
+                        p.Kill(true);
+                        p.WaitForExit(1500);
+                    }
                 }
                 catch { }
                 try
@@ -462,48 +490,15 @@ namespace MultiCompte
                     using var tk = Process.Start(new ProcessStartInfo
                     {
                         FileName = "taskkill",
-                        Arguments = $"/T /F /PID {p.Id}",
+                        Arguments = $"/T /F /PID {pid}",
                         UseShellExecute = false,
                         CreateNoWindow = true,
                         WindowStyle = ProcessWindowStyle.Hidden
                     });
-                    tk?.WaitForExit(1500);
+                    tk?.WaitForExit(2000);
                 }
                 catch { }
             }
-
-            // Ultime sécurité: force la fermeture de TOUS les Dofus restants.
-            try
-            {
-                using var tkAll = Process.Start(new ProcessStartInfo
-                {
-                    FileName = "taskkill",
-                    Arguments = "/IM Dofus.exe /T /F",
-                    UseShellExecute = false,
-                    CreateNoWindow = true,
-                    WindowStyle = ProcessWindowStyle.Hidden
-                });
-                tkAll?.WaitForExit(3000);
-            }
-            catch { }
-
-            // Vérification courte: retente une fois si un process survit encore.
-            try
-            {
-                if (Process.GetProcessesByName("Dofus").Length > 0)
-                {
-                    using var tkRetry = Process.Start(new ProcessStartInfo
-                    {
-                        FileName = "taskkill",
-                        Arguments = "/IM Dofus.exe /T /F",
-                        UseShellExecute = false,
-                        CreateNoWindow = true,
-                        WindowStyle = ProcessWindowStyle.Hidden
-                    });
-                    tkRetry?.WaitForExit(3000);
-                }
-            }
-            catch { }
         }
 
         private void LancerDofus()

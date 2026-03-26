@@ -11,9 +11,12 @@ namespace MultiCompte
         [DllImport("user32.dll")] public static extern IntPtr GetDesktopWindow();
         [DllImport("user32.dll", EntryPoint = "GetWindowLongA")] public static extern int  GetWindowLong(IntPtr hWnd, int idx);
         [DllImport("user32.dll", EntryPoint = "SetWindowLongA")] public static extern int  SetWindowLong(IntPtr hWnd, int idx, int val);
+        [DllImport("user32.dll", EntryPoint = "SetWindowLongPtrA")] public static extern IntPtr SetWindowLongPtr(IntPtr hWnd, int nIndex, IntPtr dwNewLong);
         [DllImport("user32.dll")] public static extern bool SetWindowPos(IntPtr hWnd, IntPtr after, int x, int y, int cx, int cy, uint flags);
         [DllImport("user32.dll")] public static extern bool MoveWindow(IntPtr hWnd, int x, int y, int w, int h, bool repaint);
         [DllImport("user32.dll")] public static extern bool ShowWindow(IntPtr hWnd, int cmd);
+        [DllImport("user32.dll")] public static extern bool EnableWindow(IntPtr hWnd, bool enable);
+        [DllImport("user32.dll")] public static extern bool SetForegroundWindow(IntPtr hWnd);
         [DllImport("user32.dll")] public static extern bool PostMessage(IntPtr hWnd, uint msg, IntPtr wp, IntPtr lp);
         [DllImport("user32.dll")] public static extern IntPtr SendMessage(IntPtr hWnd, uint msg, IntPtr wp, IntPtr lp);
         [DllImport("user32.dll")] public static extern bool GetWindowRect(IntPtr hWnd, out RECT rect);
@@ -78,6 +81,7 @@ namespace MultiCompte
 
         public const int  GWL_STYLE        = -16;
         public const int  GWL_EXSTYLE      = -20;
+        public const int  GWLP_HWNDPARENT  = -8;
         public const int  WS_CAPTION       = 0x00C00000;
         public const int  WS_CHILD         = 0x40000000;
         public const int  WS_POPUP         = unchecked((int)0x80000000);

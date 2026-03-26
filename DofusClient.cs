@@ -12,7 +12,6 @@ namespace MultiCompte
         public bool    Embedded { get; private set; }
         private IntPtr _hostedHwnd = IntPtr.Zero;
         private Rectangle _viewport = Rectangle.Empty;
-        private double _sourceAspect = 16.0 / 9.0;
 
         public Panel Panel { get; }
 
@@ -39,8 +38,6 @@ namespace MultiCompte
             {
                 IntPtr hwnd = RefreshHwnd();
                 if (hwnd == IntPtr.Zero) return;
-                if (NativeMethods.GetClientRect(hwnd, out NativeMethods.RECT src) && src.Width > 0 && src.Height > 0)
-                    _sourceAspect = (double)src.Width / src.Height;
                 NativeMethods.StripAllBorders(hwnd);
                 NativeMethods.SetParent(hwnd, Panel.Handle);
                 Embedded = true;
@@ -62,52 +59,33 @@ namespace MultiCompte
                 int panelH = pr.Height;
                 if (panelW <= 0 || panelH <= 0) return;
 
-                // Fit sans crop : on garde le ratio natif du client Dofus.
-                double aspect = _sourceAspect > 0.1 ? _sourceAspect : (16.0 / 9.0);
-                int x, y, w, h;
-                double panelAspect = (double)panelW / panelH;
-                if (panelAspect > aspect)
-                {
-                    h = panelH;
-                    w = Math.Max(1, (int)Math.Round(h * aspect));
-                    x = (panelW - w) / 2;
-                    y = 0;
-                }
-                else
-                {
-                    w = panelW;
-                    h = Math.Max(1, (int)Math.Round(w / aspect));
-                    x = 0;
-                    y = (panelH - h) / 2;
-                }
-
-                int targetClientW = w;
-                int targetClientH = h;
+                // Plein écran du container, identique sur toutes machines.
+                int x = 0, y = 0;
+                int w = panelW, h = panelH;
                 NativeMethods.SetWindowPos(hwnd, IntPtr.Zero, x, y, w, h,
                     NativeMethods.SWP_NOZORD | NativeMethods.SWP_NOACT | NativeMethods.SWP_SHOWWINDOW);
 
-                for (int i = 0; i < 4; i++)
+                // Une seule compensation contrôlée si la zone cliente diffère.
+                if (NativeMethods.GetClientRect(hwnd, out NativeMethods.RECT cr))
                 {
-                    if (!NativeMethods.GetClientRect(hwnd, out NativeMethods.RECT cr))
-                        break;
-
-                    int dw = targetClientW - cr.Width;
-                    int dh = targetClientH - cr.Height;
-                    if (Math.Abs(dw) <= 1 && Math.Abs(dh) <= 1)
-                        break;
-
-                    w = Math.Max(1, w + dw);
-                    h = Math.Max(1, h + dh);
-                    NativeMethods.SetWindowPos(hwnd, IntPtr.Zero, x, y, w, h,
-                        NativeMethods.SWP_NOZORD | NativeMethods.SWP_NOACT | NativeMethods.SWP_SHOWWINDOW);
+                    int dw = panelW - cr.Width;
+                    int dh = panelH - cr.Height;
+                    // Garde-fou: évite les dérives DPI aberrantes.
+                    if (Math.Abs(dw) <= 64 && Math.Abs(dh) <= 64)
+                    {
+                        w = Math.Max(1, w + dw);
+                        h = Math.Max(1, h + dh);
+                        NativeMethods.SetWindowPos(hwnd, IntPtr.Zero, x, y, w, h,
+                            NativeMethods.SWP_NOZORD | NativeMethods.SWP_NOACT | NativeMethods.SWP_SHOWWINDOW);
+                    }
                 }
 
-                _viewport = new Rectangle(x, y, w, h);
+                _viewport = new Rectangle(0, 0, panelW, panelH);
 
                 // Force aussi la surface de rendu interne (AIR/child window).
                 NativeMethods.EnumChildWindows(hwnd, (child, _) =>
                 {
-                    NativeMethods.SetWindowPos(child, IntPtr.Zero, 0, 0, w, h,
+                    NativeMethods.SetWindowPos(child, IntPtr.Zero, 0, 0, panelW, panelH,
                         NativeMethods.SWP_NOZORD | NativeMethods.SWP_NOACT | NativeMethods.SWP_SHOWWINDOW);
                     return true;
                 }, IntPtr.Zero);
@@ -122,10 +100,13 @@ namespace MultiCompte
                 IntPtr hwnd = RefreshHwnd();
                 if (hwnd == IntPtr.Zero) return;
                 NativeMethods.RestoreBorders(hwnd);
-                NativeMethods.SetParent(hwnd, NativeMethods.GetDesktopWindow());
+                NativeMethods.SetParent(hwnd, IntPtr.Zero);
+                NativeMethods.SetWindowLongPtr(hwnd, NativeMethods.GWLP_HWNDPARENT, IntPtr.Zero);
+                NativeMethods.EnableWindow(hwnd, true);
                 NativeMethods.SetWindowPos(hwnd, IntPtr.Zero, 120, 80, 1280, 800,
                     NativeMethods.SWP_NOZORD | NativeMethods.SWP_NOACT | NativeMethods.SWP_SHOWWINDOW | NativeMethods.SWP_FRAMECHANGED);
                 NativeMethods.ShowWindow(hwnd, NativeMethods.SW_RESTORE);
+                NativeMethods.SetForegroundWindow(hwnd);
                 Embedded = false;
                 _viewport = Rectangle.Empty;
             }
